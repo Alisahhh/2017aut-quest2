@@ -3,34 +3,37 @@
 #define red 0
 #define black 1
 #include "labafx.hpp"
-
+#include <iostream>
 // DO NOT MODIFY BELOW
 
 namespace Lab {
 template <typename T> class set {
 public:
   struct node {
-    bool color;
-    T data;
-    node *parent;
-    node *left;
-    node *right;
-    node() {
-      color = red;
-      data = 0;
-      parent = nullptr;
-      left = nullptr;
-      right = nullptr;
+    bool color = red;
+    T data = 0;
+    node *parent = nullptr;
+    node *left = nullptr;
+    node *right = nullptr;
+    node *pre = nullptr;
+    node *next = nullptr;
+    node *grandParent(node *n) {
+      if (n->parent == nullptr)
+        return nullptr;
+      return n->parent->parent;
     }
-    node *grandParent(node *n) { return n->parent->parent; }
 
     node *uncle(node *n) {
-      if (n->parent == grandParent(n)->left)
-        return grandParent(n)->right;
+      if (n->grandParent(n) == nullptr)
+        return nullptr;
+      if (n->parent == n->grandParent(n)->left)
+        return n->grandParent(n)->right;
       else
-        return grandParent(n)->left;
+        return n->grandParent(n)->left;
     }
     node *brother(node *n) {
+      if (n->parent == nullptr)
+        return nullptr;
       if (n == n->parent->left)
         return n->parent->right;
       else
@@ -55,7 +58,7 @@ public:
     node *current;
     const T &operator*() { return current->data; }
     iterator(node *currentTmp) { current = currentTmp; }
-    iterator operator++(int) {
+    /*iterator operator++(int) {
       node *leftChild = this->current->left;
       node *rightChild = this->current->right;
       node *now = rightChild;
@@ -63,39 +66,31 @@ public:
         now = now->left;
       }
       return iterator(now);
-    }; // for iter++
-    iterator operator--(int) {
-      node *leftChild = this.current->left;
-      node *rightChild = this.current->right;
-      node *now = leftChild;
-      while (now->right) {
-        now = now->right;
-      }
-      return iterator(now);
-    };
+    }; */// for iter++
     iterator &operator++() {
-      node *leftChild = this->current->left;
-      node *rightChild = this->current->right;
-      this->current = rightChild;
-      while (this->current->left) {
-        this->current = this->current->left;
-      }
-      return *this;
-    };
-    iterator &operator--() {
-      node *leftChild = this->current->left;
-      node *rightChild = this->current->right;
-      this->current = leftChild;
-      while (this->current->right) {
-        this->current = this->current->right;
-      }
+      current = current->next;
       return *this;
     }
+    iterator &operator--() {
+      current = current->pre;
+      return *this;
+    }
+    iterator operator++(int) // for iter++
+    {
+      iterator iter = this;
+      ++this;
+      return iter;
+    }
+    iterator operator--(int) {
+      iterator iter = this;
+      --this;
+      return iter;
+    }
     bool operator==(const iterator &another) const {
-      return (&current) == (&another.current);
+      return current == another.current;
     };
     bool operator!=(const iterator &another) const {
-      return (&current) != (&another.current);
+      return current != another.current;
     };
 
     // private:
@@ -120,42 +115,20 @@ public:
 private:
   int length;
   node *data;
-  node *beg;
-  node *en;
+  node *beg = nullptr;
+  node *en = nullptr;
   node *treeRoot = nullptr;
   // add your data and function here
 };
 template <typename T> typename set<T>::iterator set<T>::begin() {
-  if (!treeRoot)
-    return nullptr;
-  node *leftChild = treeRoot->left;
-  node *rightChild = treeRoot->right;
-  if (!leftChild)
-    return treeRoot;
-  while (leftChild->left) {
-    leftChild = leftChild->left;
-  }
-  return iterator(leftChild);
+  return iterator(beg);
 }
 
 template <typename T> typename set<T>::iterator set<T>::end() {
-  if (!treeRoot)
-    return nullptr;
-  node *leftChild = treeRoot->left;
-  node *rightChild = treeRoot->right;
-  if (!leftChild)
-    return treeRoot;
-  while (rightChild->right) {
-    rightChild = rightChild->right;
-  }
-  return iterator(rightChild);
+  return iterator(en);
 }
 
 template <typename T> void set<T>::rotate_left(node *n) {
-  if (n->parent == nullptr) {
-    treeRoot = n;
-    return;
-  }
   node *gParent = n->grandParent(n);
   node *father = n->parent;
   node *son = n->left;
@@ -176,10 +149,6 @@ template <typename T> void set<T>::rotate_left(node *n) {
 }
 
 template <typename T> void set<T>::rotate_right(node *n) {
-  if (n->parent == nullptr) {
-    treeRoot = n;
-    return;
-  }
   node *gParent = n->grandParent(n);
   node *father = n->parent;
   node *son = n->right;
@@ -200,35 +169,79 @@ template <typename T> void set<T>::rotate_right(node *n) {
 }
 
 template <typename T> void set<T>::insert(const T &item) {
+  /*std::cout << "ok"
+            << " ";*/
   node *newNode = new node;
   newNode->data = item;
   node *now = treeRoot;
+  T max = item;
+  node *maxAddress = nullptr;
+  T min = item;
+  node *minAddress = nullptr;
   while (now) {
     node *left = now->left;
     node *right = now->right;
     if (newNode->data == now->data)
       return;
-    if (left && newNode->data < now->data)
-      now = left;
-    else if (right && newNode->data > now->data)
-      now = right;
-    else {
-      // newNode= now;
-      if (newNode->data < now->data) {
-        now->left = newNode;
-        newNode->parent = now;
-        break;
-      } else {
-        now->right = newNode;
-        newNode->parent = now;
-        break;
+    if (left && newNode->data < now->data) {
+      if (now->data < max || max == item) {
+        max = now->data;
+        maxAddress = now;
       }
+      now = left;
+      continue;
     }
-    // if(now->left->data<newNode->data)
+    if (right && newNode->data > now->data) {
+      if (now->data > min || min == item) {
+        min = now->data;
+        minAddress = now;
+      }
+      now = right;
+      continue;
+    }
+    // newNode= now;
+    if (newNode->data < now->data) {
+      if (now->data < max || max == item) {
+        max = now->data;
+        maxAddress = now;
+      }
+      now->left = newNode;
+      newNode->parent = now;
+      if (minAddress) {
+        newNode->pre = minAddress;
+        minAddress->next = newNode;
+      }
+      if (maxAddress) {
+        newNode->next = maxAddress;
+        maxAddress->pre = newNode;
+      }
+      break;
+    } else {
+      if (now->data > min || min == item) {
+        min = now->data;
+        minAddress = now;
+      }
+      now->right = newNode;
+      newNode->parent = now;
+      if (minAddress) {
+        newNode->pre = minAddress;
+        minAddress->next = newNode;
+      }
+      if (maxAddress) {
+        newNode->next = maxAddress;
+        maxAddress->pre = newNode;
+      }
+      break;
+    }
   }
+  // if(now->left->data<newNode->data)
+  if (newNode->pre == nullptr)
+    beg = newNode;
+  if (newNode->next == nullptr)
+    en = newNode;
   length++;
   insert_case1(newNode);
-}
+} // namespace Lab
 template <typename T> void set<T>::insert_case1(node *n) {
   if (n->parent == nullptr) {
     treeRoot = n;
@@ -241,13 +254,12 @@ template <typename T> void set<T>::insert_case1(node *n) {
 template <typename T> void set<T>::insert_case2(node *n) {
   if (n->parent->color == black)
     return;
-  else
-    insert_case3(n);
+  insert_case3(n);
 }
 
 template <typename T> void set<T>::insert_case3(node *n) {
-  if (n->uncle(n) != nullptr && n->uncle(n)->color == red &&
-      n->parent->color == red) {
+  if (n->parent->color == red && n->uncle(n) != nullptr &&
+      n->uncle(n)->color == red) {
     n->uncle(n)->color = black;
     n->parent->color = black;
     n->grandParent(n)->color = red;
@@ -258,11 +270,11 @@ template <typename T> void set<T>::insert_case3(node *n) {
 
 template <typename T> void set<T>::insert_case4(node *n) {
   if (n == n->parent->right && n->parent == n->grandParent(n)->left) {
-    rotate_left(n->parent);
+    rotate_left(n);
     n = n->left;
   }
   if (n == n->parent->left && n->parent == n->grandParent(n)->right) {
-    rotate_right(n->parent);
+    rotate_right(n);
     n = n->right;
   }
   insert_case5(n);
@@ -271,9 +283,9 @@ template <typename T> void set<T>::insert_case5(node *n) {
   n->parent->color = black;
   n->grandParent(n)->color = red;
   if (n == n->parent->left && n->parent == n->grandParent(n)->left) {
-    rotate_right(n->grandParent(n));
+    rotate_right(n->parent);
   } else {
-    rotate_left(n->grandParent(n));
+    rotate_left(n->parent);
   }
 }
 template <typename T> typename set<T>::iterator set<T>::find(const T &item) {
@@ -309,6 +321,14 @@ template <typename T> void set<T>::erase(iterator it) {
 template <typename T> void set<T>::delete_one_child(node *n) {
   if (!n)
     return;
+  if (beg == n)
+    beg = n->next;
+  if (en == n)
+    en = n->pre;
+  if (n->pre)
+    n->pre->next = n->next;
+  if (n->next)
+    n->next->pre = n->pre;
   node *child;
   if (n->left)
     child = n->left;
@@ -330,9 +350,10 @@ template <typename T> void set<T>::delete_one_child(node *n) {
     n->parent->left = child;
   else
     n->parent->right = child;
-  child->parent = n->parent;
+  if (child)
+    child->parent = n->parent;
   if (n->color == black) {
-    if (child->color == red) {
+    if (child && child->color == red) {
       child->color = black;
     } else
       delete_case1(child);
@@ -341,7 +362,9 @@ template <typename T> void set<T>::delete_one_child(node *n) {
 }
 
 template <typename T> void set<T>::delete_case1(node *n) {
-  if (n->parent = nullptr) {
+  if (!n)
+    return;
+  if (n->parent == nullptr) {
     n->color = black;
     return;
   }
@@ -350,21 +373,22 @@ template <typename T> void set<T>::delete_case1(node *n) {
 
 template <typename T> void set<T>::delete_case2(node *n) {
   node *bro = n->brother(n);
-  if (bro->color == red) {
+  if (bro && bro->color == red) {
     n->parent->color = red;
     bro->color = black;
     if (n->parent->left == n)
-      rotate_left(n->parent);
+      rotate_left(bro);
     else
-      rotate_right(n->parent);
+      rotate_right(bro);
   }
   delete_case3(n);
 }
 
 template <typename T> void set<T>::delete_case3(node *n) {
   node *bro = n->brother(n);
-  if ((n->parent->color == black) && (bro->left->color == black) &&
-      (bro->color == black) && (bro->right->color == black)) {
+  if ((n->parent->color == black) && (bro) &&
+      ((!bro->left) || bro->left->color == black) && (bro->color == black) &&
+      ((!bro->right) || bro->right->color == black)) {
     bro->color = red;
     delete_case1(n->parent);
   } else
@@ -373,8 +397,9 @@ template <typename T> void set<T>::delete_case3(node *n) {
 
 template <typename T> void set<T>::delete_case4(node *n) {
   node *bro = n->brother(n);
-  if ((n->parent->color == red) && (bro->left->color == black) &&
-      (bro->color == black) && (bro->right->color == black)) {
+  if ((n->parent->color == red) && (bro) &&
+      ((!bro->left) || bro->left->color == black) && (bro->color == black) &&
+      ((!bro->right) || bro->right->color == black)) {
     bro->color = red;
     bro->parent->color = black;
   } else
@@ -383,17 +408,19 @@ template <typename T> void set<T>::delete_case4(node *n) {
 
 template <typename T> void set<T>::delete_case5(node *n) {
   node *bro = n->brother(n);
-  if (bro->color == black) {
-    if ((n == n->parent->left) && (bro->right->color == black) &&
+  if ((bro) && bro->color == black) {
+    if ((n == n->parent->left) &&
+        ((!bro->right) || bro->right->color == black) && (bro->left) &&
         (bro->left->color == red)) {
       bro->color = red;
       bro->left->color = black;
-      rotate_right(bro);
-    } else if ((n == n->parent->right) && (bro->right->color == red) &&
-               (bro->left->color == black)) {
+      rotate_right(bro->left);
+    } else if ((n == n->parent->right) && (bro->right) &&
+               (bro->right->color == red) &&
+               ((!bro->left) || bro->left->color == black)) {
       bro->color = red;
       bro->right->color = black;
-      rotate_left(bro);
+      rotate_left(bro->right);
     }
     delete_case6(n);
   }
@@ -406,21 +433,36 @@ template <typename T> void set<T>::delete_case6(node *n) {
 
   if (n == n->parent->left) {
     bro->right->color = black;
-    rotate_left(n->parent);
+    rotate_left(bro);
   } else {
     bro->left->color = black;
-    rotate_right(n->parent);
+    rotate_right(bro);
   }
 }
 
-template <typename T> void set<T>::clear() { del(treeRoot); }
+template <typename T> void set<T>::clear() {
+  del(treeRoot);
+  length = 0;
+  treeRoot = nullptr;
+  beg = en = nullptr;
+}
 template <typename T> void set<T>::del(node *now) {
   if (!now)
     return;
   node *leftChild = now->left;
   node *rightChild = now->right;
-  del(leftChild);
-  del(rightChild);
+  if (leftChild)
+    del(leftChild);
+  if (rightChild)
+    del(rightChild);
+  if (beg == now)
+    beg = now->next;
+  if (en == now)
+    en = now->pre;
+  if (now->pre)
+    now->pre->next = now->next;
+  if (now->next)
+    now->next->pre = now->pre;
   delete now;
   length--;
 }
